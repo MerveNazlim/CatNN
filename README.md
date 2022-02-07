@@ -1,0 +1,2 @@
+# CatNN
+Signal categorisation NN
