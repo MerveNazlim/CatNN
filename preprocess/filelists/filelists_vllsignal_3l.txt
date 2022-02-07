@@ -1,0 +1,6 @@
+0 hh /eos/user/m/magaras/VLL_h5/3l/njets/vvlmuHH.h5
+1 hz /eos/user/m/magaras/VLL_h5/3l/njets/vvlmuHZ.h5
+2 wh /eos/user/m/magaras/VLL_h5/3l/njets/vvlmuWH.h5
+3 ww /eos/user/m/magaras/VLL_h5/3l/njets/vvlmuWW.h5
+4 wz /eos/user/m/magaras/VLL_h5/3l/njets/vvlmuWZ.h5
+5 zz /eos/user/m/magaras/VLL_h5/3l/njets/vvlmuZZ.h5
