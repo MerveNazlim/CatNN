@@ -56,6 +56,46 @@ def Train_NN(model, train, val, n_epochs = 400, batch_size = 2000,):
 
     return fit_history_list
 
+
+def Train_NN_Kfold(train_data, val_data, n_epochs = 400, batch_size = 2000, num_folds = 2):
+    fit_history_list = []
+    model_list = []
+    input_shape = train_data[0].shape[1]
+
+    #Merge Data again
+    input_scaled = np.concatenate((train_data[0], val_data[0]), axis=0)
+    targets = np.concatenate((train_data[1], val_data[1]), axis=0)
+    weights = np.concatenate((train_data[2], val_data[2]), axis=0)
+
+    kfold = KFold(num_folds, True, 1)
+    fold_no = 1
+
+    for train, val in kfold.split(input_scaled, targets):
+        train_data = input_scaled[train]
+        val_data = input_scaled[val]
+        train_label = targets[train]
+        val_label = targets[val]
+        train_weights = weights[train]
+        val_weights = weights[val]
+
+        #lr_scheduler = tf.keras.callbacks.LearningRateScheduler(exponential_decay_fn)
+        lr_schedule = tf.keras.callbacks.LearningRateScheduler(lr_step_decay)
+
+        model = Create_Model_basic(input_shape)
+        print('------------------------------------------------------------------------')
+        print(f'Training for fold {fold_no} ...')
+        fit_history = model.fit(train_data, train_label, epochs = n_epochs, shuffle = True, batch_size = batch_size ,validation_data = (val_data,val_label), sample_weight=train_weights ,callbacks=[tf.keras.callbacks.EarlyStopping(monitor = 'val_loss', patience = 20, verbose = True, min_delta = 0.001),lr_schedule]) #
+        scores = model.evaluate(val_data, val_label, batch_size=batch_size, verbose=0)
+        nn_scores = model.predict(val_data,verbose = True)
+        print(f'Score for fold {fold_no}: {model.metrics_names[0]} of {scores[0]}; {model.metrics_names[1]} of {scores[1]*100}%')
+
+        model_list.append(model)
+        fit_history_list.append(fit_history)
+        fold_no += 1
+
+    return fit_history_list, model_list
+
+
 def Train_NN_old(input_scaled, targets, weights, n_epochs = 400, batch_size = 2000, num_folds = 2):
     auc_scores = []
     auc_targets = []
