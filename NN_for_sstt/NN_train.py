@@ -16,7 +16,7 @@ from tensorflow.keras import initializers
 from tensorflow.keras.losses import binary_crossentropy
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint, Callback
 import tensorflow.keras
-from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.optimizers import Adam, SGD
 from sklearn.metrics import roc_auc_score,roc_curve, auc
 from sklearn.preprocessing import scale, normalize
 from sklearn.preprocessing import RobustScaler, StandardScaler,minmax_scale
@@ -26,12 +26,12 @@ from sklearn.model_selection import train_test_split
 from tensorflow.python.framework.ops import disable_eager_execution
 disable_eager_execution()
 
-def Train_Val_Test_Split(input, targets, weights):
+def Train_Val_Test_Split(input, targets, weights, class_labels):
 
-    input, X_val, weights, weights_val, targets, y_val = train_test_split(input, weights, targets, test_size=0.1, random_state=42)
-    X_train, X_test, weights_train, weights_test, y_train, y_test = train_test_split(input, weights, targets, test_size=0.2, random_state=42)
+    input, X_val, weights, weights_val, targets, y_val, class_labels, class_labels_val = train_test_split(input, weights, targets, class_labels, test_size=0.1, random_state=42)
+    X_train, X_test, weights_train, weights_test, y_train, y_test, class_labels_train, class_labels_test = train_test_split(input, weights, targets, class_labels, test_size=0.2, random_state=42)
 
-    return (X_train, y_train, weights_train), (X_val, y_val, weights_val), (X_test, y_test, weights_test)
+    return (X_train, y_train, weights_train, class_labels_train), (X_val, y_val, weights_val, class_labels_val), (X_test, y_test, weights_test, class_labels_test)
 
 def Create_Model_basic(input_shape):
     layer_opts = dict( activation = 'sigmoid', kernel_initializer = initializers.glorot_normal(seed=seed))
@@ -48,11 +48,7 @@ def Create_Model_basic(input_shape):
 
 def Train_NN(model, train, val, n_epochs = 400, batch_size = 2000,):
     fit_history_list = []
-    #lr_scheduler = tf.keras.callbacks.LearningRateScheduler(exponential_decay_fn)
-    lr_schedule = tf.keras.callbacks.LearningRateScheduler(lr_step_decay)
-
-    fit_history_list.append(model.fit(train[0], train[1], epochs = n_epochs, shuffle = True, batch_size = batch_size, validation_data = (val[0],val[1]),
-    sample_weight = train[2], callbacks=[tf.keras.callbacks.EarlyStopping(monitor = 'val_loss', patience = 20, verbose = True, min_delta = 0.001) ,lr_schedule])) #
+    fit_history_list.append(model.fit(train[0], train[1], epochs = n_epochs, shuffle = True, batch_size = batch_size, validation_data = (val[0],val[1]), sample_weight = train[2], callbacks=[tf.keras.callbacks.EarlyStopping(monitor = 'val_loss', patience = 20, verbose = True, min_delta = 0.001)])) #
 
     return fit_history_list
 
@@ -84,7 +80,7 @@ def Train_NN_Kfold(train_data, val_data, n_epochs = 400, batch_size = 2000, num_
         model = Create_Model_basic(input_shape)
         print('------------------------------------------------------------------------')
         print(f'Training for fold {fold_no} ...')
-        fit_history = model.fit(train_data, train_label, epochs = n_epochs, shuffle = True, batch_size = batch_size ,validation_data = (val_data,val_label), sample_weight=train_weights ,callbacks=[tf.keras.callbacks.EarlyStopping(monitor = 'val_loss', patience = 20, verbose = True, min_delta = 0.001),lr_schedule]) #
+        fit_history = model.fit(train_data, train_label, epochs = n_epochs, shuffle = True, batch_size = batch_size ,validation_data = (val_data,val_label), sample_weight=train_weights ,callbacks=[tf.keras.callbacks.EarlyStopping(monitor = 'val_loss', patience = 50, verbose = True, min_delta = 0.001),lr_schedule]) #
         scores = model.evaluate(val_data, val_label, batch_size=batch_size, verbose=0)
         nn_scores = model.predict(val_data,verbose = True)
         print(f'Score for fold {fold_no}: {model.metrics_names[0]} of {scores[0]}; {model.metrics_names[1]} of {scores[1]*100}%')

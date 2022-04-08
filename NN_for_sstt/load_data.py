@@ -93,11 +93,15 @@ def load_input_file(args) :
             print(feature)
 
         # now build the samples
+        class_names = []
+        class_no = []
         if samples_group_name in input_file :
             sample_group = input_file[samples_group_name]
             for p in sample_group :
+                class_names.append(p)
                 process_group = sample_group[p]
                 class_label = process_group.attrs['training_label']
+                class_no.append(int(class_label))
                 s = Sample(name = p, class_label = int(class_label), input_data = floatify( process_group['features'][tuple(feature_list)], feature_list ))
                 samples.append(s)
 
@@ -107,7 +111,7 @@ def load_input_file(args) :
 
     samples = sorted(samples, key = lambda x: x.class_label())
 
-    return samples, feature_list
+    return samples, feature_list[:-1], class_names, class_no
 
 def build_combined_input(training_samples) :
 
@@ -131,7 +135,16 @@ def build_combined_input(training_samples) :
     targets = targets[np.where((weights<1) &(weights>0))]
     inputs  = inputs[np.where((weights<1) &(weights>0))]
     weights = weights[np.where((weights<1) &(weights>0))]
+    if targets[targets>1].size > 0:
+        print("Dataset contains extra labels for different backgrounds!")
+        for i in np.arange(targets.max()+1):
+            print("Class", i," : ", targets[targets==i].size)
+        class_labels = np.array(targets)
+        targets[class_labels==0] = 1
+        targets[class_labels>0] = 0
+    else:
+        class_labels = np.NaN
 
     print("Dataset contains {} Signal events and {} Background events.".format(targets[targets==1].size, targets[targets==0].size))
 
-    return inputs, targets, weights
+    return inputs, targets, class_labels, weights

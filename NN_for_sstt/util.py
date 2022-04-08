@@ -1,9 +1,10 @@
 import os, sys, pickle, math, argparse
 import matplotlib.pyplot as plt
 import numpy as np
+import seaborn as sns
 from sklearn.preprocessing import StandardScaler
 from tensorflow.keras.models import model_from_json
-from sklearn.metrics import roc_auc_score,roc_curve, auc
+from sklearn.metrics import roc_auc_score,roc_curve, auc,accuracy_score
 
 seed=400
 np.random.seed(seed)
@@ -129,6 +130,69 @@ def mkdir_p(path) :
             pass
         else :
             raise
+
+def Find_Eff_Cut(Sig, Bkg, Signal_Eff):
+    Cut = np.linspace(0,1,10000)
+    i = 0
+    Sig_Eff = Sig[Sig > Cut[i]].size/Sig.size
+    while Sig_Eff > Signal_Eff:
+        if Cut[i] == Cut[-1]:
+            print('Cant find desiered Signal Efficency!')
+            return 0, 0
+        i += 1
+        Sig_Eff = Sig[Sig > Cut[i]].size/Sig.size
+    Bkg_Eff = Bkg[Bkg > Cut[i]].size/Bkg.size
+    print(f"Cut_Value: {Cut[i]:.3f}")
+    print(f"Sig_Eff: {Sig_Eff:.3f}")
+    print(f"Bkg_Eff: {Bkg_Eff:.3f}")
+    print(f"Bkg Rejection: {1/Bkg_Eff:.3f}")
+    return Sig_Eff, Bkg_Eff, Cut[i]
+
+def get_feature_importance(test, model, Signal_Cut, n):
+    f = []
+    y_pred = model.predict(test[0])
+    y_pred[y_pred > Signal_Cut] = 1
+    y_pred[y_pred <= Signal_Cut] = 0
+    s = accuracy_score(test[1], y_pred)
+    for j in range(test[0].shape[1]):
+        total = 0
+        for i in range(n):
+            perm = np.random.permutation(range(test[0].shape[0]))
+            X_test_ = test[0].copy()
+            X_test_[:, j] = test[0][perm, j]
+            y_pred_ = model.predict(X_test_)
+            y_pred_[y_pred_ > Signal_Cut] = 1
+            y_pred_[y_pred_ <= Signal_Cut] = 0
+            s_ij = accuracy_score(test[1], y_pred_)
+            total += s_ij
+        f.append(s - total / n)
+    return f
+
+def Make_Confusion_Matrix(test, Predicted, Signal_Cut, class_names, relativ=True):
+    NN_Cutted = np.array(Predicted)
+    NN_Cutted[Predicted > Signal_Cut] = 1
+    NN_Cutted[Predicted < Signal_Cut] = 0
+    No_Classes = test[3].max()+1
+    C_M = np.zeros([No_Classes, 2])
+    fig, ax = plt.subplots(figsize=(10,10))
+    if relativ == True:
+        for i in np.arange(No_Classes):
+            C_M[i,0] = NN_Cutted[test[3]==i].mean()
+            C_M[i,1] = abs(1-C_M[i,0])
+        ax = sns.heatmap(C_M, annot=True, fmt='.2%', cmap='Blues')
+    else:
+        for i in np.arange(No_Classes):
+            C_M[i,0] = np.sum([NN_Cutted[test[3]==i]==1])
+            C_M[i,1] = np.array([NN_Cutted[test[3]==i]==1]).size - C_M[i,0]
+        ax = sns.heatmap(C_M, annot=True, fmt=".0f", cmap='Blues')
+
+    ax.set_xlabel('\nPredicted Class')
+    ax.set_ylabel('Class ');
+
+    ax.xaxis.set_ticklabels(['Signal','Background'])
+    ax.yaxis.set_ticklabels(class_names)
+
+    plt.show()
 
 def ScaleWeights(y,w):
     sum_wpos = sum( w[i] for i in range(len(y)) if y[i] == 1.0  )
