@@ -53,7 +53,7 @@ def floatify(input_array, feature_list) :
     ftype = [(name, float) for name in feature_list]
     return input_array.astype(ftype).view(float).reshape(input_array.shape + (-1,))
 
-def load_input_file(args) :
+def load_input_file(args, features_to_ignore) :
 
     """
     Check that the provided input HDF5 file is of the expected form
@@ -77,12 +77,12 @@ def load_input_file(args) :
         feature_list = list(input_file["samples"]["signal"]["features"].dtype.names)
         num_featurs = len(feature_list)
 
-        features_to_ignore = ["DeltaR_max_lep_bjet77"]
 
-        for feature in feature_list:
-            for ignore_feature in features_to_ignore:
-                if ignore_feature == feature:
-                    feature_list.remove(feature)
+
+
+        for ignore_feature in features_to_ignore:
+            print("Ignoring feature: ", ignore_feature)
+            feature_list.remove(ignore_feature)
 
         print("Found {} features on the dataset {} features were loaded: \n".format(num_featurs-1, len(feature_list)-1))
 

@@ -12,6 +12,14 @@ np.random.seed(seed)
 def exponential_decay_fn(epoch):
   return 0.05 * 0.1**(epoch / 20)
 
+def Find_Best_Fold(history_list):
+    fold_best_val_acc = []
+    for hist in history_list:
+        fold_best_val_acc.append(np.max(hist.history['val_accuracy']))
+    best_fold_idx = np.argmax(fold_best_val_acc)
+    print('Best fold is fold number', best_fold_idx)
+    return best_fold_idx
+
 def lr_step_decay(epoch) : #initial_lr, drop, epoch_to_drop) :
 
     initial_lr = 0.01
@@ -30,6 +38,7 @@ def lr_step_decay(epoch) : #initial_lr, drop, epoch_to_drop) :
     return new_lr
 
 def Plot_Metrics(history, path_tosave):
+    mkdir_p(path_tosave)
     for x in range(0,len(history)):
         plt.plot(history[x].history['loss'], label='Train. fold-'+str(x))
         plt.plot(history[x].history['val_loss'], label='Val. fold-'+str(x))
@@ -38,7 +47,7 @@ def Plot_Metrics(history, path_tosave):
         plt.ylabel('loss')
         plt.legend(loc='upper right')
 
-    saveit = "{}/{}".format(path_tosave, "dnn_lossepo.png")
+    saveit = "{}/{}".format(path_tosave, "Loss.png")
     plt.savefig(saveit)
     plt.show()
 
@@ -50,14 +59,13 @@ def Plot_Metrics(history, path_tosave):
         plt.ylabel('accuracy in %')
         plt.legend(loc='lower right')
 
-    saveit = "{}/{}".format(path_tosave, "dnn_accepo.png")
+    saveit = "{}/{}".format(path_tosave, "Acc.png")
     plt.savefig(saveit)
     plt.show()
 
-def Save_Model(model, file_name, output_dir):
-    job_suff = "_{}".format(file_name)
-    arch_name = "architecture{}.json".format(job_suff)
-    weights_name = "weights{}.h5".format(job_suff)
+def Save_Model(model, output_dir):
+    arch_name = "architecture.json"
+    weights_name = "weights.h5"
 
     mkdir_p(output_dir)
     arch_name = "{}/{}".format(output_dir, arch_name)
@@ -70,9 +78,9 @@ def Save_Model(model, file_name, output_dir):
     model.save_weights(weights_name)
 
 
-def Load_Model(model_name, folder):
-    arch_path = folder + "/architecture_{}.json".format(model_name)
-    weights_path = folder + "/weights_{}.h5".format(model_name)
+def Load_Model(output_dir):
+    arch_path = output_dir + "/architecture.json"
+    weights_path = output_dir + "/weights.h5"
     print("Loading model architecture and weights ({}, {})".format(os.path.abspath(arch_path), os.path.abspath(weights_path)))
     json_file = open(os.path.abspath(arch_path), 'r')
     loaded_model = json_file.read()
@@ -81,7 +89,7 @@ def Load_Model(model_name, folder):
     loaded_model.load_weights(os.path.abspath(weights_path))
     return loaded_model
 
-def Plot_NN_Output(model, train, test, log=True):
+def Plot_NN_Output(model, train, test, path_tosave, log=True):
     nn_scores_test = model.predict(test[0], verbose = True)
     nn_scores = model.predict(train[0], verbose = True)
     fig = plt.figure()
@@ -97,6 +105,8 @@ def Plot_NN_Output(model, train, test, log=True):
     plt.hist(nn_scores[train[1]==1],label = "Train_Signal", **histargs)
     plt.hist(nn_scores[train[1]==0],label = "Train_Background", **histargs)
     plt.legend(loc='upper center', frameon=False,)
+    saveit = "{}/{}".format(path_tosave, "DNN_Output.png")
+    plt.savefig(saveit)
 
 def plot_roc_curve(model,data,path_tosave):
     pred = model.predict(data[0])
@@ -106,7 +116,7 @@ def plot_roc_curve(model,data,path_tosave):
 
     fig = plt.figure()
     plt.plot(fpr, tpr, color='darkorange',
-             label='ROC curve (area = {:.2f})'.format(roc_auc))
+             label='ROC curve (area = {:.4f})'.format(roc_auc))
     plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
     plt.xlim([0.0, 1.0])
     plt.ylim([0.0, 1.05])
@@ -168,7 +178,7 @@ def get_feature_importance(test, model, Signal_Cut, n):
         f.append(s - total / n)
     return f
 
-def Make_Confusion_Matrix(test, Predicted, Signal_Cut, class_names, relativ=True):
+def Make_Confusion_Matrix(test, Predicted, Signal_Cut, class_names, path_tosave, relativ=True):
     NN_Cutted = np.array(Predicted)
     NN_Cutted[Predicted > Signal_Cut] = 1
     NN_Cutted[Predicted < Signal_Cut] = 0
@@ -192,6 +202,11 @@ def Make_Confusion_Matrix(test, Predicted, Signal_Cut, class_names, relativ=True
     ax.xaxis.set_ticklabels(['Signal','Background'])
     ax.yaxis.set_ticklabels(class_names)
 
+    if relativ==True:
+        save_path = path_tosave + "/Confusion_Matrix_Rel.png"
+    else:
+        save_path = path_tosave + "/Confusion_Matrix_Abs.png"
+    plt.savefig(save_path)
     plt.show()
 
 def ScaleWeights(y,w):
