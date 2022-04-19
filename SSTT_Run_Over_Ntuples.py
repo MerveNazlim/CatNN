@@ -52,19 +52,20 @@ def main() :
     f1 = uproot.open(args.input,library="pd")
     f=f1['nominal']
     arr_frame2lCAT = f.arrays([
-    "nJets_OR",
-    "jet_pt0_nofwd",
     "HT_jets",
     "HT_lep",
-    "sumPsbtag",
+    "MtLepMet",
+    "jet_pt0_nofwd",
     "met_met",
-    "MtLepMet"
+    "nJets_OR",
+    "sumPsbtag",
     ],library="pd")
 
-    scaler = StandardScaler().fit(arr_frame2lCAT)
+    scaler = pickle.load(open(args.trainpath2l + 'scaler.pkl','rb'))
     df_sc2l = scaler.transform(arr_frame2lCAT)
 
     scores2l = predict_NN(model2l ,df_sc2l)
+    print(np.mean(scores2l))
 
     length = len(args.input.split("/"))
     print(len(args.input.split("/")))
