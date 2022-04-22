@@ -31,13 +31,13 @@ def lr_step_decay(epoch) : #initial_lr, drop, epoch_to_drop) :
     elif epoch >= 25 :
         epoch -= 25
 #        new_lr = initial_lr
-        print('INFO Setting learning rate back to initial LR (={})'.format(initial_lr))
+        #print('INFO Setting learning rate back to initial LR (={})'.format(initial_lr))
 
     new_lr = np.round(initial_lr * math.pow(drop, math.floor((1+epoch)/epoch_to_drop)),4)
-    print('INFO LR Schedule: {}'.format(new_lr))
+    #print('INFO LR Schedule: {}'.format(new_lr))
     return new_lr
 
-def Plot_Metrics(history, path_tosave):
+def Plot_Metrics_KFold(history, path_tosave):
     mkdir_p(path_tosave)
     for x in range(0,len(history)):
         plt.plot(history[x].history['loss'], label='Train. fold-'+str(x))
@@ -47,7 +47,7 @@ def Plot_Metrics(history, path_tosave):
         plt.ylabel('loss')
         plt.legend(loc='upper right')
 
-    saveit = "{}/{}".format(path_tosave, "Loss.png")
+    saveit = "{}/{}".format(path_tosave, "Loss_KFold.png")
     plt.savefig(saveit)
     plt.show()
 
@@ -55,6 +55,30 @@ def Plot_Metrics(history, path_tosave):
         plt.plot(history[x].history['accuracy'], label='Train. fold-'+str(x))
         plt.plot(history[x].history['val_accuracy'], label='Val. fold-'+str(x))
         #plt.title('DNN ($D_{in}$=7, $D_{hidden}$=2, 0.2Drop)')
+        plt.xlabel('epoch')
+        plt.ylabel('accuracy in %')
+        plt.legend(loc='lower right')
+
+    saveit = "{}/{}".format(path_tosave, "Acc_KFold.png")
+    plt.savefig(saveit)
+    plt.show()
+
+def Plot_Metrics(history, path_tosave):
+    mkdir_p(path_tosave)
+    for x in range(0,len(history)):
+        plt.plot(history[x].history['loss'], label='Train Data')
+        plt.plot(history[x].history['val_loss'], label='Validation Data')
+        plt.xlabel('epoch')
+        plt.ylabel('loss')
+        plt.legend(loc='upper right')
+
+    saveit = "{}/{}".format(path_tosave, "Loss.png")
+    plt.savefig(saveit)
+    plt.show()
+
+    for x in range(0,len(history)):
+        plt.plot(history[x].history['accuracy'], label='Train Data')
+        plt.plot(history[x].history['val_accuracy'], label='Validation Data')
         plt.xlabel('epoch')
         plt.ylabel('accuracy in %')
         plt.legend(loc='lower right')

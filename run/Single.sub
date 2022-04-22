@@ -1,0 +1,15 @@
+#Fakes Diboson Other ttH tttt ttW tty ttZ
+Executable 	=   /afs/cern.ch/user/v/vandergr/private/DNN/run/ssttback.sh
+Log             =   /afs/cern.ch/user/v/vandergr/private/DNN/run/condor_output/out.log
+Error           =   /afs/cern.ch/user/v/vandergr/private/DNN/run/condor_output/condor_output/out.err
+Output          =   /afs/cern.ch/user/v/vandergr/private/DNN/run/condor_output/condor_output/out.out
+universe        =   vanilla
+transfer_output	=   true
+transfer_error  =   true
+transfer_executable 	= true
+should_transfer_files	= IF_NEEDED
+when_to_transfer_output	= ON_EXIT
+
++JobFlavour = workday
+
+queue

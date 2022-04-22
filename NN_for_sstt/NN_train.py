@@ -37,7 +37,6 @@ def Create_Model_basic(input_shape):
     layer_opts = dict( activation = 'sigmoid', kernel_initializer = initializers.glorot_normal(seed=seed))
     input_layer = Kl.Input(shape = input_shape )
     x = Kl.Dense( 36, **layer_opts) (input_layer)
-    x = Kl.Dropout(0.4)(x)
     x = Kl.Dense( 48, **layer_opts) (x)
     y_pred = Kl.Dense( 1., activation = 'sigmoid', name = "OutputLayer" )(x)
     model = Km.Model(inputs= input_layer, outputs=y_pred )
@@ -83,9 +82,6 @@ def Train_NN_Kfold(train_data, val_data, n_epochs = 400, batch_size = 2000, num_
         fit_history = model.fit(train_data, train_label, epochs = n_epochs, shuffle = True, batch_size = batch_size ,validation_data = (val_data,val_label), sample_weight=train_weights, verbose=0 ,callbacks=[tf.keras.callbacks.EarlyStopping(monitor = 'val_loss', patience = 50, verbose = True, min_delta = 0.001),lr_schedule]) #
         scores = model.evaluate(val_data, val_label, batch_size=batch_size, verbose=0)
         nn_scores = model.predict(val_data,verbose = True)
-
-        tpr, tpr, thr = roc_curve(truth, pred)
-        roc_auc = auc(fpr, tpr)
 
         print(f'Score for fold {fold_no}: {model.metrics_names[0]} of {scores[0]}; {model.metrics_names[1]} of {scores[1]*100}%')
 

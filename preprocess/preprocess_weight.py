@@ -14,7 +14,7 @@ import h5py
 
 # numpy
 import numpy as np
-
+from numpy.lib.recfunctions import append_fields
 # sklearn
 from sklearn.preprocessing import StandardScaler
 
@@ -180,7 +180,7 @@ def datasets_with_name(input_files = [], dataset_name = "", req_fields = None) :
 
     """
     From an input list of HDF5 files, return a list of such files
-    that contain a given top-level dataset node name and
+    that contain a given top-level dataset node name and 
     a set of fields
 
     Arguments:
@@ -194,7 +194,7 @@ def datasets_with_name(input_files = [], dataset_name = "", req_fields = None) :
     for ifile in input_files :
         with h5py.File(ifile.filepath, 'r') as sample_file :
           #  import pdb; pdb.set_trace()
-            if dataset_name in sample_file :
+            if dataset_name in sample_file :    
                 dtype = sample_file[dataset_name].dtype.names
                 sample_fields = list(sample_file[dataset_name].dtype.names)
                 if req_fields != "ALL_FIELDS" and len(req_fields) > 0 :
@@ -267,9 +267,50 @@ def preprocess_file(input_file, input_group, train_size, args) :
         ds = infile[args.dataset_name]
        # import pdb; pdb.set_trace()
         # hardcode the selection
-        indices = (ds['sumPsbtag'] >= -1)
+       # nan=np.where(np.isnan(ds['totalEventsWeighted']))
+       # import pdb; pdb.set_trace()
+        #indices = (ds['totalEventsWeighted'] > 0)
+       # import pdb; pdb.set_trace()
+        indices = ~np.isnan(ds['totalEventsWeighted'])
+   #     indices = (ds['nJets_OR'] >= 3)
         ds = ds[indices]
+        indices = (ds['totalEventsWeighted'] > 0)
+        ds = ds[indices]
+        indices = np.isfinite(ds['totalEventsWeighted'])
+        ds = ds[indices]
+       # import pdb; pdb.set_trace()
+ #       indices = (ds['mcChannelNumber']!=346345)
+ #       ds = ds[indices]
+        #import pdb; pdb.set_trace()
+       # cond1 = np.logical_and(ds['nJets_OR']>=3 ,ds['jet_pseudoscore_DL1r0']>=2)
+       # cond2 = ds['nJets_OR'] == 2
+       # indices2 = np.logical_or(cond1,cond2)
+       # ds = ds[indices2]
+   #     indices2 = (ds['jet_pseudoscore_DL1r0'] < 2)
+   #     ds = ds[indices2]
 
+#        nOF = np.zeros(ds.shape)
+#        cond1 = np.logical_or(ds['trilep_type']==2 ,ds['trilep_type']==3)
+#        cond2 = np.logical_or(abs(ds['lep_ID_1']+ds['lep_ID_2'])==26, abs(ds['lep_ID_1']+ds['lep_ID_2'])==22)
+#        cond3 = np.logical_and(abs(ds['lep_ID_1']+ds['lep_ID_2'])!=26, abs(ds['lep_ID_1']+ds['lep_ID_2'])!=22)
+#        cond4 = np.logical_or(ds['trilep_type']==1 ,ds['trilep_type']==4)
+#        nOF = np.where(np.logical_and(cond1,cond3), 1, nOF)
+#        nOF = np.where(cond4, 2,nOF)
+#        ds = append_fields(ds, 'numOF', nOF,  '<i4')
+#        feature_list.append('numOF')
+
+        asd= (36207.66*(ds['RunYear'][:]==2015)+36207.66*(ds['RunYear'][:]==2016)+44307.4*(ds['RunYear'][:]==2017)+58450.1*(ds['RunYear'][:]==2018))*ds['weight_pileup'][:]*ds['jvtSF_customOR'][:]*ds['bTagSF_weight_DL1r_77'][:]*ds['weight_mc'][:]*ds['xs'][:]/ds['totalEventsWeighted'][:]
+        ds = append_fields(ds, 'event_weight', asd,  '<f4')
+        feature_list.append('event_weight')
+        #import pdb; pdb.set_trace()
+        indices = ~np.isnan(ds['event_weight'])
+#    #     indices = (ds['nJets_OR'] >= 3)
+        ds = ds[indices]
+        indices = (ds['event_weight'] > 0)
+        ds = ds[indices]
+        indices = np.isfinite(ds['event_weight'])
+        ds = ds[indices]
+     #   import pdb; pdb.set_trace()
         if len(feature_list) > 0 :
             ds = ds[feature_list]
 
@@ -302,7 +343,7 @@ def preprocess(inputs, args) :
     output_filename = ""
     if args.outdir != "" :
         mkdir_p(args.outdir)
-    output_filename += args.outdir
+    output_filename += args.outdir 
     output_filename += "/{}".format(args.output)
     output_filename = unique_filename(output_filename)
 
@@ -324,6 +365,8 @@ def preprocess(inputs, args) :
         # construct the scaling group
         scale_group = outfile.create_group("scaling")
         feature_list = get_features(args)
+        feature_list.append('event_weight')
+       # feature_list.append('numOF')
         scaling_inputs = None
         samples_used_for_scaling = []
         for isample, sample in enumerate(sample_group) :
@@ -352,7 +395,7 @@ def main() :
     parser.add_argument("-i", "--input",
         help = "Provide input HDF5 files [HDF5 file, text filelist, or directory of files]",
         required = True)
-    parser.add_argument("-o", "--output", help = "Provide output filename", default = "sstt_signals.h5")
+    parser.add_argument("-o", "--output", help = "Provide output filename", default = "2hdm_signals.h5")
     parser.add_argument("--outdir", help = "Provide an output directory for file dumps [default: ./]", default = "./")
     parser.add_argument("-f", "--feature-list", help = "Provide list of features to slim on [comma-separated list, text file]",
         default = "all")
@@ -379,3 +422,4 @@ def main() :
 #_________________________________
 if __name__ == "__main__" :
     main()
+

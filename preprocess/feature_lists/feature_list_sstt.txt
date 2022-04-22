@@ -1,0 +1,16 @@
+DEtall_SS
+DPhill_SS
+DRll01
+HT_jets
+HT_lep
+Mll01
+MtLepMet
+jet_pseudoscore_DL1r0
+jet_pseudoscore_DL1r1
+jet_pseudoscore_DL1r2
+jet_pt0_nofwd
+met_met
+nJets_OR
+nJets_OR_DL1r_77
+sumPsbtag
+sumPsbtag77

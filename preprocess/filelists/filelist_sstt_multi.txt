@@ -1,0 +1,9 @@
+0 signal /eos/user/v/vandergr/sstt_data/Hybrid_Selection/V02/sstt_singal.h5
+1 ttZ /eos/user/v/vandergr/sstt_data/Hybrid_Selection/V02/ttZ.h5
+2 tty /eos/user/v/vandergr/sstt_data/Hybrid_Selection/V02/tty.h5
+3 ttW /eos/user/v/vandergr/sstt_data/Hybrid_Selection/V02/ttW.h5
+4 tttt /eos/user/v/vandergr/sstt_data/Hybrid_Selection/V02/tttt.h5
+5 ttH /eos/user/v/vandergr/sstt_data/Hybrid_Selection/V02/ttH.h5
+6 Other /eos/user/v/vandergr/sstt_data/Hybrid_Selection/V02/Other.h5
+7 Diboson /eos/user/v/vandergr/sstt_data/Hybrid_Selection/V02/Diboson.h5
+8 Fakes /eos/user/v/vandergr/sstt_data/Hybrid_Selection/V02/Fakes.h5

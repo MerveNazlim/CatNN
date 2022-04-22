@@ -1,7 +1,5 @@
 #!/usr/bin/env python
-
 import argparse
-
 import sys
 import os
 import glob
@@ -11,12 +9,9 @@ from time import time
 
 # h5py
 import h5py
-
 # numpy
 import numpy as np
-
-# sklearn
-from sklearn.preprocessing import StandardScaler
+from numpy.lib.recfunctions import append_fields
 
 class FileInput :
     """
@@ -257,7 +252,7 @@ def get_features(args) :
     else :
         return args.feature_list.split(",")
 
-def preprocess_file(input_file, input_group, train_size, args) :
+def preprocess_file(input_file, input_group, args) :
 
     feature_list = get_features(args)
     if feature_list == "all" :
@@ -265,37 +260,34 @@ def preprocess_file(input_file, input_group, train_size, args) :
 
     with h5py.File(input_file.filepath, 'r') as infile :
         ds = infile[args.dataset_name]
-       # import pdb; pdb.set_trace()
-        # hardcode the selection
-        indices = (ds['sumPsbtag'] >= -1)
+
+        #Clean up remove events with NANs, negativ weights, or infinit weights
+        indices = ~np.isnan(ds['totalEventsWeighted'])
+        ds = ds[indices]
+        indices = (ds['totalEventsWeighted'] > 0)
+        ds = ds[indices]
+        indices = np.isfinite(ds['totalEventsWeighted'])
+        ds = ds[indices]
+
+
+        asd= (36207.66*(ds['RunYear'][:]==2015)+36207.66*(ds['RunYear'][:]==2016)+44307.4*(ds['RunYear'][:]==2017)+58450.1*(ds['RunYear'][:]==2018))*ds['weight_pileup'][:]*ds['jvtSF_customOR'][:]*ds['bTagSF_weight_DL1r_77'][:]*ds['weight_mc'][:]*ds['xs'][:]/ds['totalEventsWeighted'][:]
+        ds = append_fields(ds, 'event_weight', asd,  '<f4')
+
+        #Clean up remove events with NANs, negativ weights, or infinit weights
+        feature_list.append('event_weight')
+        indices = ~np.isnan(ds['event_weight'])
+        ds = ds[indices]
+        indices = (ds['event_weight'] > 0)
+        ds = ds[indices]
+        indices = np.isfinite(ds['event_weight'])
         ds = ds[indices]
 
         if len(feature_list) > 0 :
             ds = ds[feature_list]
 
-        if input_file.label == 0 and train_size < 0 :
-            train_size = int(float(ds.size) / 2.0)
-            print("training size =  {}".format(train_size))
-            if args.training_size != 0 :
-                train_size = int(args.training_size)
-        elif input_file.label != 0 and train_size < 0 :
-            raise Exception("training size is not set but we are attempting to process an input file without label 0!")
-
-        # for now just do half/half, but should implement varying fraction...
         np.random.shuffle(ds)
-      #  if input_file.label == 0 :
-      #    ds_train = ds[:train_size]
-      #    ds_validation = ds[train_size:train_size*2]
-      #  else:
-      #    ds_train = ds[:35000]
-      #    ds_validation = ds[35000:35000*2]
-        ds_train = ds[:train_size]
-        ds_validation = ds[train_size:train_size*2]
 
-        out_ds_train = input_group.create_dataset("train_features", shape = ds_train.shape, dtype = ds_train.dtype, data = ds_train, maxshape = (None,))
-        out_ds_validation = input_group.create_dataset("validation_features", shape = ds_validation.shape, dtype = ds_validation.dtype, data = ds_validation, maxshape = (None,))
-
-        return train_size
+        out_ds_train = input_group.create_dataset("features", shape = ds.shape, dtype = ds.dtype, data = ds, maxshape = (None,))
 
 def preprocess(inputs, args) :
 
@@ -309,7 +301,6 @@ def preprocess(inputs, args) :
     with h5py.File(output_filename, "w") as outfile :
 
         sample_group = outfile.create_group("samples")
-        training_size = -1
 
         for i, input_file in enumerate(inputs) :
 
@@ -318,53 +309,21 @@ def preprocess(inputs, args) :
             input_group.attrs['filepath'] = input_file.filepath
             print(input_file.label)
             print(input_file.name)
-            print("bitti")
-            training_size = preprocess_file(input_file, input_group, training_size, args)
-
-        # construct the scaling group
-        scale_group = outfile.create_group("scaling")
-        feature_list = get_features(args)
-        scaling_inputs = None
-        samples_used_for_scaling = []
-        for isample, sample in enumerate(sample_group) :
-            data = sample_group[sample]["train_features"][:]#.dtype
-            samples_used_for_scaling.append(sample)
-            if isample == 0 :
-                scaling_inputs = floatify( data, feature_list)
-            else :
-                scaling_inputs = np.concatenate( (scaling_inputs, floatify( data, feature_list )), axis = 0 )
-
-        samples_str = ",".join(samples_used_for_scaling)
-        scale_group.attrs["scale_samples"] = samples_str
-        scaler = StandardScaler() # sklearn
-        scaler.fit(scaling_inputs)
-        scales, means, vars = scaler.scale_, scaler.mean_, scaler.var_
-
-        dt_scale = [ ( 'name', h5py.special_dtype(vlen=str) ), ( 'scale', float ), ( 'mean', float ), ( 'var', float ) ]
-        scaling_data = np.array( list(zip(feature_list, scales, means, vars)), dtype = dt_scale)
-        scaling_dataset = scale_group.create_dataset("scaling_data", shape = scaling_data.shape, dtype = dt_scale, data = scaling_data, maxshape = (None,))
+            preprocess_file(input_file, input_group, args)
 
     print("storing preprocessed file at : {}".format(os.path.abspath(output_filename)))
 
 def main() :
 
     parser = argparse.ArgumentParser(description = "Pre-process your inputs")
-    parser.add_argument("-i", "--input",
-        help = "Provide input HDF5 files [HDF5 file, text filelist, or directory of files]",
-        required = True)
-    parser.add_argument("-o", "--output", help = "Provide output filename", default = "sstt_signals.h5")
+    parser.add_argument("-i", "--input", help = "Provide input HDF5 files [HDF5 file, text filelist, or directory of files]", required = True)
+    parser.add_argument("-o", "--output", help = "Provide output filename", default = "2hdm_signals.h5")
     parser.add_argument("--outdir", help = "Provide an output directory for file dumps [default: ./]", default = "./")
-    parser.add_argument("-f", "--feature-list", help = "Provide list of features to slim on [comma-separated list, text file]",
-        default = "all")
-    parser.add_argument("-d", "--dataset-name", help = "Common dataset name in files",
-                required = True)
+    parser.add_argument("-f", "--feature-list", help = "Provide list of features to slim on [comma-separated list, text file]", default = "all")
+    parser.add_argument("-d", "--dataset-name", help = "Common dataset name in files", default = "nominal")
     parser.add_argument("-s", "--selection-file", help = "Provide a selection file (JSON)", default = "")
-    parser.add_argument("-v", "--verbose", help = "Be loud about it", default = False,
-        action = 'store_true')
-    parser.add_argument("--training-size", help = "Provide number of events for training (default is half of sample with training label 0)", default = 0, type = int)
-    parser.add_argument("--validation-size", help = "Provide number of events for validation (default is half of sample with training label 0)", default = 0, type = int)
+    parser.add_argument("-v", "--verbose", help = "Be loud about it", default = False, action = 'store_true')
     args = parser.parse_args()
-
 
     if args.selection_file != "" :
         # right now just hard code the selection

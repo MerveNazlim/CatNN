@@ -1,0 +1,2 @@
+0 background /eos/user/v/vandergr/sstt_data/No_Cuts/2lbacksstt.h5
+1 signal /eos/user/v/vandergr/sstt_data/No_Cuts/2lsigsstt.h5

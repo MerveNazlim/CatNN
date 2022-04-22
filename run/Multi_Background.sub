@@ -1,0 +1,12 @@
+#Fakes Diboson Other ttH tttt ttW tty ttZ
+Executable 	=   /afs/cern.ch/user/v/vandergr/private/DNN/run/Run_Scripts/$(Process).sh
+Log         =   /afs/cern.ch/user/v/vandergr/private/DNN/run/condor_output/$(Process).log
+Error       =   /afs/cern.ch/user/v/vandergr/private/DNN/run/condor_output/$(Process).err
+Output      =   /afs/cern.ch/user/v/vandergr/private/DNN/run/condor_output/$(Process).out
+universe    =   vanilla
+
+should_transfer_files	= IF_NEEDED
+
++JobFlavour = workday
+
+queue 9
