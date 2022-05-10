@@ -184,12 +184,13 @@ def Find_Eff_Cut(Sig, Bkg, Signal_Eff):
 
 def get_feature_importance(test, model, Signal_Cut, n):
     f = []
+    g = []
     y_pred = model.predict(test[0])
     y_pred[y_pred > Signal_Cut] = 1
     y_pred[y_pred <= Signal_Cut] = 0
     s = accuracy_score(test[1], y_pred)
     for j in range(test[0].shape[1]):
-        total = 0
+        total = []
         for i in range(n):
             perm = np.random.permutation(range(test[0].shape[0]))
             X_test_ = test[0].copy()
@@ -198,9 +199,11 @@ def get_feature_importance(test, model, Signal_Cut, n):
             y_pred_[y_pred_ > Signal_Cut] = 1
             y_pred_[y_pred_ <= Signal_Cut] = 0
             s_ij = accuracy_score(test[1], y_pred_)
-            total += s_ij
-        f.append(s - total / n)
-    return f
+            total.append(s_ij)
+        total = np.array(total)
+        f.append(s - total.mean())
+        g.append(total.std())
+    return f, g
 
 def Make_Confusion_Matrix(test, Predicted, Signal_Cut, class_names, path_tosave, relativ=True):
     NN_Cutted = np.array(Predicted)
