@@ -26,6 +26,57 @@ from sklearn.model_selection import train_test_split
 from tensorflow.python.framework.ops import disable_eager_execution
 disable_eager_execution()
 
+def distance_corr(var_1, var_2, normedweight, power=1):
+    """var_1: First variable to decorrelate (eg mass)
+    var_2: Second variable to decorrelate (eg classifier output)
+    normedweight: Per-example weight. Sum of weights should add up to N (where N is the number of examples)
+    power: Exponent used in calculating the distance correlation
+
+    va1_1, var_2 and normedweight should all be 1D tf tensors with the same number of entries
+
+    Usage: Add to your loss function. total_loss = BCE_loss + lambda * distance_corr
+    """
+
+    xx = tf.reshape(var_1, [-1, 1])
+    xx = tf.tile(xx, [1, tf.size(var_1)])
+    xx = tf.reshape(xx, [tf.size(var_1), tf.size(var_1)])
+
+    yy = tf.transpose(xx)
+    amat = tf.math.abs(xx-yy)
+
+    xx = tf.reshape(var_2, [-1, 1])
+    xx = tf.tile(xx, [1, tf.size(var_2)])
+    xx = tf.reshape(xx, [tf.size(var_2), tf.size(var_2)])
+
+    yy = tf.transpose(xx)
+    bmat = tf.math.abs(xx-yy)
+
+    amatavg = tf.reduce_mean(amat*normedweight, axis=1)
+    bmatavg = tf.reduce_mean(bmat*normedweight, axis=1)
+
+    minuend_1 = tf.tile(amatavg, [tf.size(var_1)])
+    minuend_1 = tf.reshape(minuend_1, [tf.size(var_1), tf.size(var_1)])
+    minuend_2 = tf.transpose(minuend_1)
+    Amat = amat-minuend_1-minuend_2+tf.reduce_mean(amatavg*normedweight)
+
+    minuend_1 = tf.tile(bmatavg, [tf.size(var_2)])
+    minuend_1 = tf.reshape(minuend_1, [tf.size(var_2), tf.size(var_2)])
+    minuend_2 = tf.transpose(minuend_1)
+    Bmat = bmat-minuend_1-minuend_2+tf.reduce_mean(bmatavg*normedweight)
+
+    ABavg = tf.reduce_mean(Amat*Bmat*normedweight,axis=1)
+    AAavg = tf.reduce_mean(Amat*Amat*normedweight,axis=1)
+    BBavg = tf.reduce_mean(Bmat*Bmat*normedweight,axis=1)
+
+    if power==1:
+        dCorr = tf.reduce_mean(ABavg*normedweight)/tf.math.sqrt(tf.reduce_mean(AAavg*normedweight)*tf.reduce_mean(BBavg*normedweight))
+    elif power==2:
+        dCorr = (tf.reduce_mean(ABavg*normedweight))**2/(tf.reduce_mean(AAavg*normedweight)*tf.reduce_mean(BBavg*normedweight))
+    else:
+        dCorr = (tf.reduce_mean(ABavg*normedweight)/tf.math.sqrt(tf.reduce_mean(AAavg*normedweight)*tf.reduce_mean(BBavg*normedweight)))**power
+
+    return dCorr
+
 def Train_Val_Test_Split(input, targets, weights, class_labels):
 
     input, X_val, weights, weights_val, targets, y_val, class_labels, class_labels_val = train_test_split(input, weights, targets, class_labels, test_size=0.1, random_state=42)
@@ -45,11 +96,70 @@ def Create_Model_basic(input_shape):
     model.summary()
     return model
 
+#def Loss_with_Disco(y_true, y_pred, Dphi, weight, lamb=0.1):
+#    return (distance_corr(Dphi, y_pred, weight) * lamb)
+
+def Loss_with_Disco(y_true, y_pred, Dphi, weight, lamb=0.1):
+    BCE = tf.keras.losses.BinaryCrossentropy(from_logits=True)
+    return (distance_corr(Dphi, y_pred, weight) * lamb + BCE(y_true, y_pred))
+
+def Loss_Disco(Dphi_and_weight, lamb):
+    Dphi = Dphi_and_weight[0]
+    weight = Dphi_and_weight[1]
+    def Disco(y_true, y_pred):
+        return Loss_with_Disco(y_true, y_pred, Dphi, weight, lamb=0.1)
+    return Disco
+
+def Create_Model_with_Disco(input_shape):
+    layer_opts = dict( activation = 'sigmoid', kernel_initializer = initializers.glorot_normal(seed=seed))
+    Dphi_and_weight = Kl.Input(shape = int(2))
+    input_layer = Kl.Input(shape = input_shape )
+    x = Kl.Dense( 36, **layer_opts) (input_layer)
+    x = Kl.Dense( 48, **layer_opts) (x)
+    y_pred = Kl.Dense( 1., activation = 'sigmoid', name = "OutputLayer" )(x)
+    model = Km.Model(inputs= [input_layer, Dphi_and_weight], outputs=y_pred )
+    model_optimizer = Adam(lr=0.0001)
+    model_disco = Loss_Disco(Dphi_and_weight, 0.1)
+    model.compile(optimizer=tf.keras.optimizers.Adam(),loss=model_disco, metrics = ['accuracy'])
+    model.summary()
+    return model
+
 def Train_NN(model, train, val, n_epochs = 400, batch_size = 2000,):
     fit_history_list = []
     fit_history_list.append(model.fit(train[0], train[1], epochs = n_epochs, shuffle = True, batch_size = batch_size, validation_data = (val[0],val[1]), sample_weight = train[2], callbacks=[tf.keras.callbacks.EarlyStopping(monitor = 'val_loss', patience = 20, verbose = True, min_delta = 0.001)])) #
 
     return fit_history_list
+
+
+def Fold_Odd_Even(input, targets, weights, class_labels, Number):
+    input_odd = input[Number % 2 == 1]
+    targets_odd = targets[Number % 2 == 1]
+    weights_odd = weights[Number % 2 == 1]
+    class_labels_odd = class_labels[Number % 2 == 1]
+    input_even = input[Number % 2 == 0]
+    targets_even = targets[Number % 2 == 0]
+    weights_even = weights[Number % 2 == 0]
+    class_labels_even = class_labels[Number % 2 == 0]
+    return (input_odd, targets_odd, weights_odd, class_labels_odd), (input_even, targets_even, weights_even, class_labels_even)
+
+
+def Train_Odd_Even(odd, even, n_epochs = 400, batch_size = 2000):
+    fit_history_list = []
+    model_list = []
+    input_shape = odd[0].shape[1]
+
+    lr_schedule = tf.keras.callbacks.LearningRateScheduler(lr_step_decay)
+
+    X_odd, X_val_odd, weights_odd, weights_val_odd, y_odd, y_val_odd, = train_test_split(odd[0], odd[2], odd[1], test_size=0.2)
+    X_even, X_val_even, weights_even, weights_val_even, y_even, y_val_even, = train_test_split(even[0], even[2], even[1], test_size=0.2)
+
+    model_odd = Create_Model_basic(input_shape)
+    model_even = Create_Model_basic(input_shape)
+    fit_history_odd = model_odd.fit(X_odd, y_odd, epochs = n_epochs, shuffle = True, batch_size = batch_size, validation_data=(X_val_odd, y_val_odd, weights_val_odd), sample_weight=weights_odd, verbose=0 ,callbacks=[tf.keras.callbacks.EarlyStopping(monitor = 'val_loss', patience = 100, verbose = True, min_delta = 0.001),lr_schedule]) #
+    fit_history_even = model_even.fit(X_even, y_even, epochs = n_epochs, shuffle = True, batch_size = batch_size, validation_data=(X_val_even, y_val_even, weights_val_even), sample_weight=weights_even, verbose=0 ,callbacks=[tf.keras.callbacks.EarlyStopping(monitor = 'val_loss', patience = 100, verbose = True, min_delta = 0.001),lr_schedule]) #
+
+    return fit_history_odd, model_odd, fit_history_even, model_even
+
 
 
 def Train_NN_Kfold(train_data, val_data, n_epochs = 400, batch_size = 2000, num_folds = 2):

@@ -87,9 +87,9 @@ def Plot_Metrics(history, path_tosave):
     plt.savefig(saveit)
     plt.show()
 
-def Save_Model(model, output_dir):
-    arch_name = "architecture.json"
-    weights_name = "weights.h5"
+def Save_Model(model, output_dir, name=""):
+    arch_name = "architecture" + str(name) + ".json"
+    weights_name = "weights" + str(name) +  ".h5"
 
     mkdir_p(output_dir)
     arch_name = "{}/{}".format(output_dir, arch_name)
@@ -102,9 +102,9 @@ def Save_Model(model, output_dir):
     model.save_weights(weights_name)
 
 
-def Load_Model(output_dir):
-    arch_path = output_dir + "/architecture.json"
-    weights_path = output_dir + "/weights.h5"
+def Load_Model(output_dir, name=""):
+    arch_path = output_dir + "/architecture" + str(name) + ".json"
+    weights_path = output_dir + "/weights" + str(name) + ".h5"
     print("Loading model architecture and weights ({}, {})".format(os.path.abspath(arch_path), os.path.abspath(weights_path)))
     json_file = open(os.path.abspath(arch_path), 'r')
     loaded_model = json_file.read()
@@ -124,10 +124,10 @@ def Plot_NN_Output(model, train, test, path_tosave, log=True):
     if log == True:
         plt.yscale('log')
     histargs = {"bins":40, "range":(0,1.), "density":True, "histtype":'step'}
-    plt.hist(nn_scores_test[test[1]==1],label = "Test_Signal", **histargs)
-    plt.hist(nn_scores_test[test[1]==0],label = "Test_Background", **histargs)
-    plt.hist(nn_scores[train[1]==1],label = "Train_Signal", **histargs)
-    plt.hist(nn_scores[train[1]==0],label = "Train_Background", **histargs)
+    plt.hist(nn_scores_test[test[1]==1],label = "Test_Signal", **histargs, weights=test[2][test[1]==1])
+    plt.hist(nn_scores_test[test[1]==0],label = "Test_Background", **histargs, weights=test[2][test[1]==0])
+    plt.hist(nn_scores[train[1]==1],label = "Train_Signal", **histargs, weights=train[2][train[1]==1])
+    plt.hist(nn_scores[train[1]==0],label = "Train_Background", **histargs, weights=train[2][train[1]==0])
     plt.legend(loc='upper center', frameon=False,)
     saveit = "{}/{}".format(path_tosave, "DNN_Output.png")
     plt.savefig(saveit)
@@ -135,7 +135,7 @@ def Plot_NN_Output(model, train, test, path_tosave, log=True):
 def plot_roc_curve(model,data,path_tosave):
     pred = model.predict(data[0])
     truth = data[1]
-    fpr, tpr, thr = roc_curve(truth, pred)
+    fpr, tpr, thr = roc_curve(truth, pred, sample_weight=data[2])
     roc_auc = auc(fpr, tpr)
 
     fig = plt.figure()
